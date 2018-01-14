@@ -37,7 +37,7 @@ start() {
 local board=$(board_name)
 
 case "$board" in
-fritz4040)
+avm,fritzbox-4040)
   	set_irq_affinity edma_eth_tx4 2
 	set_irq_affinity edma_eth_tx5 2
 	set_irq_affinity edma_eth_tx6 2
@@ -58,15 +58,15 @@ fritz4040)
 	set_irq_affinity wifi2 8
 	;;
 ap148 |\
-c2600 |\
+tplink,c2600 |\
 db149 |\
-d7800 |\
-ea8500 |\
-nbg6817 |\
-r7500 |\
-r7500v2 |\
-r7800 |\
-vr2600v)
+netgear,d7800 |\
+linksys,ea8500 |\
+zyxel,nbg6817 |\
+netgear,r7500 |\
+netgear,r7500v2 |\
+netgear,r7800 |\
+tplink,vr2600v)
   set_irq_affinity eth0 2
 	set_irq_affinity eth1 2
 	set_irq_affinity wifi0 2
