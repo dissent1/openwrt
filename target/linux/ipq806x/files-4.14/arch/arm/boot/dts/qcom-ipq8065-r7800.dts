@@ -1,4 +1,4 @@
-#include "qcom-ipq8065-v1.0.dtsi"
+#include "qcom-ipq8065.dtsi"
 
 #include <dt-bindings/input/input.h>
 
@@ -20,8 +20,15 @@
 			no-map;
 		};
 
-		rsvd@5fe00000 {
-			reg = <0x5fe00000 0x200000>;
+		/* scm firmware reserve */
+		rsvd@44600000 {
+			reg = <0x44600000 0x200000>;
+			reusable;
+		};
+
+		/* u-boot memory pool */
+		rsvd@5fc00000 {
+			reg = <0x5fc00000 0x400000>;
 			reusable;
 		};
 	};
@@ -51,14 +58,16 @@
 				};
 			};
 
-			i2c4_pins: i2c4_pinmux {
-				mux {
-					pins = "gpio12", "gpio13";
-					function = "gsbi4";
-					drive-strength = <12>;
-					bias-disable;
-				};
-			};
+			/*
+			 * i2c4_pins: i2c4_pinmux {
+			 * 	mux {
+			 * 		pins = "gpio12", "gpio13";
+			 * 		function = "gsbi4";
+			 * 		drive-strength = <12>;
+			 * 		bias-disable;
+			 * 	};
+			 * };
+			 */
 
 			led_pins: led_pins {
 				pins = "gpio7", "gpio8", "gpio9", "gpio22", "gpio23",
@@ -213,49 +222,6 @@
 			 * RPM usage. Turning this on in kernel manifests as
 			 * i2c failure for the RPM.
 			 */
-		};
-
-		gsbi5: gsbi@1a200000 {
-			qcom,mode = <GSBI_PROT_SPI>;
-			status = "ok";
-
-			spi5: spi@1a280000 {
-				status = "ok";
-
-				pinctrl-0 = <&spi_pins>;
-				pinctrl-names = "default";
-
-				cs-gpios = <&qcom_pinmux 20 GPIO_ACTIVE_HIGH>;
-
-				flash: m25p80@0 {
-					compatible = "jedec,spi-nor";
-					#address-cells = <1>;
-					#size-cells = <1>;
-					spi-max-frequency = <50000000>;
-					reg = <0>;
-
-					linux,part-probe = "qcom-smem";
-				};
-			};
-		};
-
-		gsbi6: gsbi@16500000 {
-			qcom,mode = <GSBI_PROT_SPI>;
-			status = "ok";
-			spi6: spi@16580000 {
-				status = "ok";
-
-				pinctrl-0 = <&spi6_pins>;
-				pinctrl-names = "default";
-
-				cs-gpios = <&qcom_pinmux 57 GPIO_ACTIVE_HIGH>;
-
-				spi-nor@0 {
-					compatible = "jedec,spi-nor";
-					reg = <0>;
-					spi-max-frequency = <6000000>;
-				};
-			};
 		};
 
 		sata-phy@1b400000 {
@@ -478,14 +444,7 @@
 				full-duplex;
 			};
 		};
-
-		/*
-		* rpm@108000 {
-		* 	pinctrl-0 = <&i2c4_pins>;
-		* 	pinctrl-names = "default";
-		* };
-		*/
-};
+	};
 
 	gpio-keys {
 		compatible = "gpio-keys";
