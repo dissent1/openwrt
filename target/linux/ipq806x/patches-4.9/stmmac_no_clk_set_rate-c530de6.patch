@@ -1,0 +1,25 @@
+From c530de61d6906e2a8d7c2993d373a85889c5dc9d Mon Sep 17 00:00:00 2001
+From: Pavel Kubelun <be.dissent@gmail.com>
+Date: Sat, 20 Jan 2018 12:12:09 +0300
+Subject: [PATCH] stmmac no clk_set_rate
+
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+index 866444b..0b70963 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
+@@ -227,7 +227,7 @@ static int ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
+ 		dev_err(dev, "missing stmmaceth clk property\n");
+ 		return PTR_ERR(gmac->core_clk);
+ 	}
+-	clk_set_rate(gmac->core_clk, 266000000);
++/*	clk_set_rate(gmac->core_clk, 266000000); */
+ 
+ 	/* Setup the register map for the nss common registers */
+ 	gmac->nss_common = syscon_regmap_lookup_by_phandle(dev->of_node,
+--
+Working Copy 3.0.6
+
