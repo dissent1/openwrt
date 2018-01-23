@@ -1,7 +1,7 @@
-From 563fa24db4e529c5a3311928d73a8a90531ee527 Mon Sep 17 00:00:00 2001
+From 71a7bc094159d8c137c4510ef3ee91bdbc6353ad Mon Sep 17 00:00:00 2001
 From: Thomas Pedersen <twp@codeaurora.org>
 Date: Mon, 16 May 2016 17:58:51 -0700
-Subject: [PATCH 02/69] dmaengine: Add ADM driver
+Subject: [PATCH] dmaengine: Add ADM driver
 
 Original patch by Andy Gross.
 
@@ -18,12 +18,15 @@ and also incorporates CRCI (client rate control interface) flow control.
 Signed-off-by: Andy Gross <agross@codeaurora.org>
 Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 ---
- drivers/dma/qcom/Kconfig    |  10 +
- drivers/dma/qcom/Makefile   |   1 +
- drivers/dma/qcom/qcom_adm.c | 900 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 911 insertions(+)
+ drivers/dma/qcom/Kconfig    |   10 +
+ drivers/dma/qcom/Makefile   |    1 +
+ drivers/dma/qcom/qcom_adm.c | 1032 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/dmaengine.h   |    9 +
+ 4 files changed, 1052 insertions(+)
  create mode 100644 drivers/dma/qcom/qcom_adm.c
 
+diff --git a/drivers/dma/qcom/Kconfig b/drivers/dma/qcom/Kconfig
+index a7761c4..a88769e 100644
 --- a/drivers/dma/qcom/Kconfig
 +++ b/drivers/dma/qcom/Kconfig
 @@ -27,3 +27,13 @@ config QCOM_HIDMA
@@ -40,16 +43,21 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	  Enable support for the Qualcomm ADM DMA controller.  This controller
 +	  provides DMA capabilities for both general purpose and on-chip
 +	  peripheral devices.
+diff --git a/drivers/dma/qcom/Makefile b/drivers/dma/qcom/Makefile
+index 1ae92da..98a021f 100644
 --- a/drivers/dma/qcom/Makefile
 +++ b/drivers/dma/qcom/Makefile
-@@ -4,3 +4,4 @@ obj-$(CONFIG_QCOM_HIDMA_MGMT) += hdma_mg
+@@ -4,3 +4,4 @@ obj-$(CONFIG_QCOM_HIDMA_MGMT) += hdma_mgmt.o
  hdma_mgmt-objs	 := hidma_mgmt.o hidma_mgmt_sys.o
  obj-$(CONFIG_QCOM_HIDMA) +=  hdma.o
  hdma-objs        := hidma_ll.o hidma.o hidma_dbg.o
 +obj-$(CONFIG_QCOM_ADM) += qcom_adm.o
+diff --git a/drivers/dma/qcom/qcom_adm.c b/drivers/dma/qcom/qcom_adm.c
+new file mode 100644
+index 0000000..2695ff7
 --- /dev/null
 +++ b/drivers/dma/qcom/qcom_adm.c
-@@ -0,0 +1,914 @@
+@@ -0,0 +1,1032 @@
 +/*
 + * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
 + *
@@ -81,6 +89,7 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +#include <linux/reset.h>
 +#include <linux/clk.h>
 +#include <linux/dmaengine.h>
++#include <linux/dmapool.h>
 +
 +#include "../dmaengine.h"
 +#include "../virt-dma.h"
@@ -159,6 +168,23 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +#define ADM_MAX_ROWS		(SZ_64K-1)
 +#define ADM_MAX_CHANNELS	16
 +
++#define ADM_CRCI_BLK_SIZE	0x7
++/*
++ * DMA POOL SIZE for small size DMA desc which requires
++ * maximum one box and one single desc.
++ */
++#define ADM_DMA_POOL_SIZE	(sizeof(struct adm_desc_hw_single) + \
++				 sizeof(struct adm_desc_hw_box) + \
++				 sizeof(u32 *) + \
++				 2 * ADM_DESC_ALIGN)
++
++#define MAX_CPLE_CNT 64
++
++/* command list entry must be 8 byte aligned */
++#define ADM_GET_CPLE(async_desc) PTR_ALIGN((async_desc)->cpl, (ADM_DESC_ALIGN))
++
++#define ADM_DMA_CPL_LEN	(sizeof(u32 *) * MAX_CPLE_CNT + 2 * ADM_DESC_ALIGN)
++
 +struct adm_desc_hw_box {
 +	u32 cmd;
 +	u32 src_addr;
@@ -179,6 +205,9 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	struct virt_dma_desc vd;
 +	struct adm_device *adev;
 +
++	/* list node for the desc in the adm_chan list of descriptors */
++	struct list_head desc_node;
++
 +	size_t length;
 +	enum dma_transfer_direction dir;
 +	dma_addr_t dma_addr;
@@ -198,12 +227,17 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	/* parsed from DT */
 +	u32 id;			/* channel id */
 +
-+	struct adm_async_desc *curr_txd;
 +	struct dma_slave_config slave;
++
++	/* list of descriptors currently processed */
++	struct list_head desc_list;
 +	struct list_head node;
 +
 +	int error;
 +	int initialized;
++
++	u32 *cp_list;
++	dma_addr_t dma_addr_cp_list;
 +};
 +
 +static inline struct adm_chan *to_adm_chan(struct dma_chan *common)
@@ -227,7 +261,11 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	struct reset_control *c0_reset;
 +	struct reset_control *c1_reset;
 +	struct reset_control *c2_reset;
++	struct dma_pool *dma_pool;
 +	int irq;
++
++	void *cpl;
++	dma_addr_t dma_addr_cp_list;
 +};
 +
 +/**
@@ -280,10 +318,11 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 + * @crci: CRCI value
 + * @burst: Burst size of transaction
 + * @direction: DMA transfer direction
++ * @is_last_sg: set true if this desc is for last SG
 + */
 +static void *adm_process_fc_descriptors(struct adm_chan *achan,
 +	void *desc, struct scatterlist *sg, u32 crci, u32 burst,
-+	enum dma_transfer_direction direction)
++	enum dma_transfer_direction direction, bool is_last_sg)
 +{
 +	struct adm_desc_hw_box *box_desc = NULL;
 +	struct adm_desc_hw_single *single_desc;
@@ -331,10 +370,10 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +		single_desc->dst_addr = *dst;
 +		desc += sizeof(*single_desc);
 +
-+		if (sg_is_last(sg))
++		if (is_last_sg)
 +			single_desc->cmd |= ADM_CMD_LC;
 +	} else {
-+		if (box_desc && sg_is_last(sg))
++		if (box_desc && is_last_sg)
 +			box_desc->cmd |= ADM_CMD_LC;
 +	}
 +
@@ -348,10 +387,12 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 + * @desc: Descriptor memory pointer
 + * @sg: Scatterlist entry
 + * @direction: DMA transfer direction
++ * @is_last_sg: set true if this desc is for last SG
 + */
 +static void *adm_process_non_fc_descriptors(struct adm_chan *achan,
 +	void *desc, struct scatterlist *sg,
-+	enum dma_transfer_direction direction)
++	enum dma_transfer_direction direction,
++	bool is_last_sg)
 +{
 +	struct adm_desc_hw_single *single_desc;
 +	u32 remainder = sg_dma_len(sg);
@@ -381,7 +422,7 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	} while (remainder);
 +
 +	/* set last command if this is the end of the whole transaction */
-+	if (sg_is_last(sg))
++	if (is_last_sg)
 +		single_desc->cmd |= ADM_CMD_LC;
 +
 +	return desc;
@@ -406,12 +447,12 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	struct adm_device *adev = achan->adev;
 +	struct adm_async_desc *async_desc;
 +	struct scatterlist *sg;
-+	dma_addr_t cple_addr;
 +	u32 i, burst;
 +	u32 single_count = 0, box_count = 0, crci = 0;
 +	void *desc;
 +	u32 *cple;
 +	int blk_size = 0;
++	bool is_last_sg = false;
 +
 +	if (!is_slave_direction(direction)) {
 +		dev_err(adev->dev, "invalid dma direction\n");
@@ -432,13 +473,13 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +		if (blk_size < 0) {
 +			dev_err(adev->dev, "invalid burst value: %d\n",
 +				burst);
-+			return ERR_PTR(-EINVAL);
++			return NULL;
 +		}
 +
 +		crci = achan->slave.slave_id & 0xf;
 +		if (!crci || achan->slave.slave_id > 0x1f) {
 +			dev_err(adev->dev, "invalid crci value\n");
-+			return ERR_PTR(-EINVAL);
++			return NULL;
 +		}
 +	}
 +
@@ -455,9 +496,11 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +		}
 +	}
 +
-+	async_desc = kzalloc(sizeof(*async_desc), GFP_ATOMIC);
-+	if (!async_desc)
-+		return ERR_PTR(-ENOMEM);
++	async_desc = kzalloc(sizeof(*async_desc), GFP_NOWAIT);
++	if (!async_desc) {
++		dev_err(adev->dev, "failed to allocate desc memory\n");
++		return NULL;
++	}
 +
 +	if (crci)
 +		async_desc->mux = achan->slave.slave_id & ADM_CRCI_MUX_SEL ?
@@ -468,48 +511,77 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +				box_count * sizeof(struct adm_desc_hw_box) +
 +				sizeof(*cple) + 2 * ADM_DESC_ALIGN;
 +
-+	async_desc->cpl = kzalloc(async_desc->dma_len, GFP_ATOMIC);
-+	if (!async_desc->cpl)
-+		goto free;
++	if (async_desc->dma_len <= ADM_DMA_POOL_SIZE)
++		async_desc->cpl = dma_pool_alloc(adev->dma_pool,
++					GFP_NOWAIT, &async_desc->dma_addr);
++	else
++		async_desc->cpl = dma_alloc_writecombine(adev->dev,
++					async_desc->dma_len,
++					&async_desc->dma_addr, GFP_NOWAIT);
++
++	if (!async_desc->cpl) {
++		dev_err(adev->dev, "failed to allocate cpl memory %d\n",
++				async_desc->dma_len);
++		kfree(async_desc);
++		return NULL;
++	}
 +
 +	async_desc->adev = adev;
 +
 +	/* both command list entry and descriptors must be 8 byte aligned */
-+	cple = PTR_ALIGN(async_desc->cpl, ADM_DESC_ALIGN);
++	cple = ADM_GET_CPLE(async_desc);
 +	desc = PTR_ALIGN(cple + 1, ADM_DESC_ALIGN);
++
++	/* init cmd list */
++	*cple = (desc - async_desc->cpl + async_desc->dma_addr) >> 3;
 +
 +	for_each_sg(sgl, sg, sg_len, i) {
 +		async_desc->length += sg_dma_len(sg);
 +
++		if (i == sg_len - 1)
++			is_last_sg = true;
++
 +		if (achan->slave.device_fc)
 +			desc = adm_process_fc_descriptors(achan, desc, sg, crci,
-+							burst, direction);
++					burst, direction, is_last_sg);
 +		else
 +			desc = adm_process_non_fc_descriptors(achan, desc, sg,
-+							   direction);
++					direction, is_last_sg);
 +	}
 +
-+	async_desc->dma_addr = dma_map_single(adev->dev, async_desc->cpl,
-+					      async_desc->dma_len,
-+					      DMA_TO_DEVICE);
-+	if (dma_mapping_error(adev->dev, async_desc->dma_addr))
-+		goto free;
-+
-+	cple_addr = async_desc->dma_addr + ((void *)cple - async_desc->cpl);
-+
-+	/* init cmd list */
-+	dma_sync_single_for_cpu(adev->dev, cple_addr, sizeof(*cple),
-+				DMA_TO_DEVICE);
-+	*cple = ADM_CPLE_LP;
-+	*cple |= (async_desc->dma_addr + ADM_DESC_ALIGN) >> 3;
-+	dma_sync_single_for_device(adev->dev, cple_addr, sizeof(*cple),
-+				   DMA_TO_DEVICE);
-+
 +	return vchan_tx_prep(&achan->vc, &async_desc->vd, flags);
++}
 +
-+free:
-+	kfree(async_desc);
-+	return ERR_PTR(-ENOMEM);
++/**
++ * adm_terminate_all_graceful - Gracefully terminate all transactions on a channel
++ * @achan: adm dma channel
++ *
++ * Dequeues and frees all transactions, aborts current transaction
++ * No callbacks are done
++ *
++ */
++static int adm_terminate_all_graceful(struct dma_chan *chan, bool graceful)
++{
++	struct adm_chan *achan = to_adm_chan(chan);
++	struct adm_device *adev = achan->adev;
++	unsigned long flags;
++	LIST_HEAD(head);
++
++	spin_lock_irqsave(&achan->vc.lock, flags);
++	vchan_get_all_descriptors(&achan->vc, &head);
++
++	/* send flush command to terminate current transaction */
++	if (graceful)
++		writel_relaxed((1 << 31),
++			adev->regs + ADM_CH_FLUSH_STATE0(achan->id, adev->ee));
++	else
++		writel_relaxed(0x0,
++			adev->regs + ADM_CH_FLUSH_STATE0(achan->id, adev->ee));
++	spin_unlock_irqrestore(&achan->vc.lock, flags);
++
++	vchan_dma_desc_free_list(&achan->vc, &head);
++
++	return 0;
 +}
 +
 +/**
@@ -562,17 +634,13 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	struct virt_dma_desc *vd = vchan_next_desc(&achan->vc);
 +	struct adm_device *adev = achan->adev;
 +	struct adm_async_desc *async_desc;
++	u32 *cple;
++	u32 cple_cnt = 0;
 +
 +	lockdep_assert_held(&achan->vc.lock);
 +
 +	if (!vd)
 +		return;
-+
-+	list_del(&vd->node);
-+
-+	/* write next command list out to the CMD FIFO */
-+	async_desc = container_of(vd, struct adm_async_desc, vd);
-+	achan->curr_txd = async_desc;
 +
 +	/* reset channel error */
 +	achan->error = 0;
@@ -591,17 +659,43 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +		achan->initialized = 1;
 +	}
 +
-+	/* set the crci block size if this transaction requires CRCI */
-+	if (async_desc->crci) {
-+		writel(async_desc->mux | async_desc->blk_size,
-+			adev->regs + ADM_CRCI_CTL(async_desc->crci, adev->ee));
++	while (vd && cple_cnt < MAX_CPLE_CNT) {
++		/* write next command list out to the CMD FIFO */
++		async_desc = container_of(vd, struct adm_async_desc, vd);
++
++		/* set the crci block size if this transaction requires CRCI */
++		if (async_desc->crci) {
++			u32 cur_reg_val = readl(adev->regs +
++				ADM_CRCI_CTL(async_desc->crci, adev->ee));
++			cur_reg_val &= (ADM_CRCI_CTL_MUX_SEL | ADM_CRCI_CTL_RST
++					| ADM_CRCI_BLK_SIZE);
++
++			if (cur_reg_val != (async_desc->mux |
++						async_desc->blk_size)) {
++				if (!list_empty(&achan->desc_list))
++					break;
++
++				writel(async_desc->mux | async_desc->blk_size,
++					adev->regs +
++					ADM_CRCI_CTL(async_desc->crci,
++					adev->ee));
++			}
++		}
++
++		list_del(&vd->node);
++		cple = ADM_GET_CPLE(async_desc);
++
++		achan->cp_list[cple_cnt++] = *cple;
++		list_add_tail(&async_desc->desc_node, &achan->desc_list);
++		vd = vchan_next_desc(&achan->vc);
 +	}
 +
++	achan->cp_list[cple_cnt-1] |= ADM_CPLE_LP;
 +	/* make sure IRQ enable doesn't get reordered */
 +	wmb();
 +
 +	/* write next command list out to the CMD FIFO */
-+	writel(ALIGN(async_desc->dma_addr, ADM_DESC_ALIGN) >> 3,
++	writel(ALIGN(achan->dma_addr_cp_list, ADM_DESC_ALIGN) >> 3,
 +		adev->regs + ADM_CH_CMD_PTR(achan->id, adev->ee));
 +}
 +
@@ -616,7 +710,7 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +{
 +	struct adm_device *adev = data;
 +	u32 srcs, i;
-+	struct adm_async_desc *async_desc;
++	struct adm_async_desc *async_desc, *tmp;
 +	unsigned long flags;
 +
 +	srcs = readl_relaxed(adev->regs +
@@ -646,16 +740,15 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +				achan->error = 1;
 +
 +			spin_lock_irqsave(&achan->vc.lock, flags);
-+			async_desc = achan->curr_txd;
 +
-+			achan->curr_txd = NULL;
-+
-+			if (async_desc) {
++			list_for_each_entry_safe(async_desc, tmp,
++					 &achan->desc_list, desc_node) {
 +				vchan_cookie_complete(&async_desc->vd);
-+
-+				/* kick off next DMA */
-+				adm_start_dma(achan);
++				list_del(&async_desc->desc_node);
 +			}
++
++			/* kick off next DMA */
++			adm_start_dma(achan);
 +
 +			spin_unlock_irqrestore(&achan->vc.lock, flags);
 +		}
@@ -719,7 +812,7 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +
 +	spin_lock_irqsave(&achan->vc.lock, flags);
 +
-+	if (vchan_issue_pending(&achan->vc) && !achan->curr_txd)
++	if (vchan_issue_pending(&achan->vc) && list_empty(&achan->desc_list))
 +		adm_start_dma(achan);
 +	spin_unlock_irqrestore(&achan->vc.lock, flags);
 +}
@@ -734,20 +827,32 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	struct adm_async_desc *async_desc = container_of(vd,
 +			struct adm_async_desc, vd);
 +
-+	dma_unmap_single(async_desc->adev->dev, async_desc->dma_addr,
-+			 async_desc->dma_len, DMA_TO_DEVICE);
-+	kfree(async_desc->cpl);
++	if (async_desc->dma_len <= ADM_DMA_POOL_SIZE)
++		dma_pool_free(async_desc->adev->dma_pool,
++			async_desc->cpl, async_desc->dma_addr);
++	else
++		dma_free_writecombine(async_desc->adev->dev,
++			async_desc->dma_len,
++			async_desc->cpl, async_desc->dma_addr);
++
 +	kfree(async_desc);
 +}
 +
 +static void adm_channel_init(struct adm_device *adev, struct adm_chan *achan,
 +	u32 index)
 +{
++	achan->cp_list = PTR_ALIGN(adev->cpl + index * ADM_DMA_CPL_LEN,
++				   ADM_DESC_ALIGN);
++	achan->dma_addr_cp_list = adev->dma_addr_cp_list +
++				  index * ADM_DMA_CPL_LEN;
++
 +	achan->id = index;
 +	achan->adev = adev;
 +
 +	vchan_init(&achan->vc, &adev->common);
 +	achan->vc.desc_free = adm_dma_free_desc;
++
++	INIT_LIST_HEAD(&achan->desc_list);
 +}
 +
 +static int adm_dma_probe(struct platform_device *pdev)
@@ -846,8 +951,17 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +		goto err_disable_clks;
 +	}
 +
++	adev->dma_pool = dma_pool_create(dev_name(adev->dev), adev->dev,
++				ADM_DMA_POOL_SIZE, 1, 0);
++
 +	/* allocate and initialize channels */
 +	INIT_LIST_HEAD(&adev->common.channels);
++	adev->cpl = dma_alloc_writecombine(adev->dev,
++				ADM_DMA_CPL_LEN * ADM_MAX_CHANNELS,
++				&adev->dma_addr_cp_list, GFP_KERNEL);
++
++	if (!adev->cpl)
++		goto err_destroy_pool;
 +
 +	for (i = 0; i < ADM_MAX_CHANNELS; i++)
 +		adm_channel_init(adev, &adev->channels[i], i);
@@ -860,9 +974,9 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	/* configure client interfaces */
 +	writel(ADM_CI_RANGE_START(0x40) | ADM_CI_RANGE_END(0xb0) |
 +		ADM_CI_BURST_8_WORDS, adev->regs + ADM_CI_CONF(0));
-+	writel(ADM_CI_RANGE_START(0x2a) | ADM_CI_RANGE_END(0x2c) |
++	writel(ADM_CI_RANGE_START(0x12) | ADM_CI_RANGE_END(0x14) |
 +		ADM_CI_BURST_8_WORDS, adev->regs + ADM_CI_CONF(1));
-+	writel(ADM_CI_RANGE_START(0x12) | ADM_CI_RANGE_END(0x28) |
++	writel(ADM_CI_RANGE_START(0x15) | ADM_CI_RANGE_END(0x28) |
 +		ADM_CI_BURST_8_WORDS, adev->regs + ADM_CI_CONF(2));
 +	writel(ADM_GP_CTL_LP_EN | ADM_GP_CTL_LP_CNT(0xf),
 +		adev->regs + ADM_GP_CTL);
@@ -870,7 +984,7 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	ret = devm_request_irq(adev->dev, adev->irq, adm_dma_irq,
 +			0, "adm_dma", adev);
 +	if (ret)
-+		goto err_disable_clks;
++		goto err_free_cpl;
 +
 +	platform_set_drvdata(pdev, adev);
 +
@@ -892,12 +1006,13 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	adev->common.device_issue_pending = adm_issue_pending;
 +	adev->common.device_tx_status = adm_tx_status;
 +	adev->common.device_terminate_all = adm_terminate_all;
++	adev->common.device_terminate_all_graceful = adm_terminate_all_graceful;
 +	adev->common.device_config = adm_slave_config;
 +
 +	ret = dma_async_device_register(&adev->common);
 +	if (ret) {
 +		dev_err(adev->dev, "failed to register dma async device\n");
-+		goto err_disable_clks;
++		goto err_free_cpl;
 +	}
 +
 +	ret = of_dma_controller_register(pdev->dev.of_node,
@@ -910,6 +1025,12 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +
 +err_unregister_dma:
 +	dma_async_device_unregister(&adev->common);
++err_free_cpl:
++	dma_free_writecombine(adev->dev,
++			ADM_DMA_CPL_LEN * ADM_MAX_CHANNELS,
++			adev->cpl, adev->dma_addr_cp_list);
++err_destroy_pool:
++	dma_pool_destroy(adev->dma_pool);
 +err_disable_clks:
 +	clk_disable_unprepare(adev->iface_clk);
 +err_disable_core_clk:
@@ -937,6 +1058,11 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +	}
 +
 +	devm_free_irq(adev->dev, adev->irq, adev);
++	dma_free_writecombine(adev->dev,
++			ADM_DMA_CPL_LEN * ADM_MAX_CHANNELS,
++			adev->cpl, adev->dma_addr_cp_list);
++
++	dma_pool_destroy(adev->dma_pool);
 +
 +	clk_disable_unprepare(adev->core_clk);
 +	clk_disable_unprepare(adev->iface_clk);
@@ -964,3 +1090,33 @@ Signed-off-by: Thomas Pedersen <twp@codeaurora.org>
 +MODULE_AUTHOR("Andy Gross <agross@codeaurora.org>");
 +MODULE_DESCRIPTION("QCOM ADM DMA engine driver");
 +MODULE_LICENSE("GPL v2");
+diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
+index 8319101..806bb15 100644
+--- a/include/linux/dmaengine.h
++++ b/include/linux/dmaengine.h
+@@ -796,6 +796,7 @@ struct dma_device {
+ 	int (*device_resume)(struct dma_chan *chan);
+ 	int (*device_terminate_all)(struct dma_chan *chan);
+ 	void (*device_synchronize)(struct dma_chan *chan);
++	int (*device_terminate_all_graceful)(struct dma_chan *chan, bool graceful);
+ 
+ 	enum dma_status (*device_tx_status)(struct dma_chan *chan,
+ 					    dma_cookie_t cookie,
+@@ -1000,6 +1001,14 @@ static inline int dmaengine_terminate_sync(struct dma_chan *chan)
+ 	return 0;
+ }
+ 
++static inline int dmaengine_terminate_all_graceful(struct dma_chan *chan, bool graceful)
++{
++	if (chan->device->device_terminate_all)
++		return chan->device->device_terminate_all_graceful(chan, graceful);
++
++	return -ENOSYS;
++}
++
+ static inline int dmaengine_pause(struct dma_chan *chan)
+ {
+ 	if (chan->device->device_pause)
+-- 
+2.7.4
+
