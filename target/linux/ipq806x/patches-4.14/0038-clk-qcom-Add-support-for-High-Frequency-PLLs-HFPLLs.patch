@@ -1,17 +1,20 @@
-From patchwork Fri Dec  8 09:42:21 2017
+From patchwork Tue Dec 19 15:54:48 2017
 Content-Type: text/plain; charset="utf-8"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Subject: [v4,03/12] clk: qcom: Add support for High-Frequency PLLs (HFPLLs)
+Subject: [v5,03/15] clk: qcom: Add support for High-Frequency PLLs (HFPLLs)
 From: Sricharan R <sricharan@codeaurora.org>
-X-Patchwork-Id: 10102083
-Message-Id: <1512726150-7204-4-git-send-email-sricharan@codeaurora.org>
-To: mturquette@baylibre.com, sboyd@codeaurora.org,
- devicetree@vger.kernel.org, linux-pm@vger.kernel.org,
- linux-arm-msm@vger.kernel.org, linux-kernel@vger.kernel.org,
- viresh.kumar@linaro.org, linux-arm-kernel@lists.infradead.org
+X-Patchwork-Id: 10123539
+Message-Id: <1513698900-10638-4-git-send-email-sricharan@codeaurora.org>
+To: robh+dt@kernel.org, mark.rutland@arm.com, mturquette@baylibre.com,
+ sboyd@codeaurora.org, linux@armlinux.org.uk, andy.gross@linaro.org,
+ david.brown@linaro.org, rjw@rjwysocki.net, viresh.kumar@linaro.org,
+ linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-clk@vger.kernel.org,
+ linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
+ linux-pm@vger.kernel.org
 Cc: sricharan@codeaurora.org
-Date: Fri,  8 Dec 2017 15:12:21 +0530
+Date: Tue, 19 Dec 2017 21:24:48 +0530
 
 From: Stephen Boyd <sboyd@codeaurora.org>
 
@@ -21,15 +24,15 @@ support for changing the rate of these PLLs.
 Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 ---
  drivers/clk/qcom/Makefile    |   1 +
- drivers/clk/qcom/clk-hfpll.c | 253 +++++++++++++++++++++++++++++++++++++++++++
- drivers/clk/qcom/clk-hfpll.h |  54 +++++++++
- 3 files changed, 308 insertions(+)
+ drivers/clk/qcom/clk-hfpll.c | 244 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/clk/qcom/clk-hfpll.h |  45 ++++++++
+ 3 files changed, 290 insertions(+)
  create mode 100644 drivers/clk/qcom/clk-hfpll.c
  create mode 100644 drivers/clk/qcom/clk-hfpll.h
 
 --- a/drivers/clk/qcom/Makefile
 +++ b/drivers/clk/qcom/Makefile
-@@ -9,6 +9,7 @@ clk-qcom-y += clk-rcg2.o
+@@ -10,6 +10,7 @@ clk-qcom-y += clk-rcg2.o
  clk-qcom-y += clk-branch.o
  clk-qcom-y += clk-regmap-divider.o
  clk-qcom-y += clk-regmap-mux.o
@@ -39,19 +42,10 @@ Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
  
 --- /dev/null
 +++ b/drivers/clk/qcom/clk-hfpll.c
-@@ -0,0 +1,253 @@
-+/*
-+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
+@@ -0,0 +1,244 @@
++// SPDX-License-Identifier: GPL-2.0
++// Copyright (c) 2017, The Linux Foundation. All rights reserved.
++
 +#include <linux/kernel.h>
 +#include <linux/export.h>
 +#include <linux/regmap.h>
@@ -117,7 +111,7 @@ Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 +	 * H/W requires a 5us delay between disabling the bypass and
 +	 * de-asserting the reset. Delay 10us just to be safe.
 +	 */
-+	usleep_range(10, 100);
++	udelay(10);
 +
 +	/* De-assert active-low PLL reset. */
 +	regmap_update_bits(regmap, hd->mode_reg, PLL_RESET_N, PLL_RESET_N);
@@ -128,7 +122,7 @@ Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 +			regmap_read(regmap, hd->status_reg, &val);
 +		} while (!(val & BIT(hd->lock_bit)));
 +	} else {
-+		usleep_range(60, 100);
++		udelay(60);
 +	}
 +
 +	/* Enable PLL output. */
@@ -295,19 +289,10 @@ Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 +EXPORT_SYMBOL_GPL(clk_ops_hfpll);
 --- /dev/null
 +++ b/drivers/clk/qcom/clk-hfpll.h
-@@ -0,0 +1,54 @@
-+/*
-+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
+@@ -0,0 +1,45 @@
++// SPDX-License-Identifier: GPL-2.0
++// Copyright (c) 2017, The Linux Foundation. All rights reserved.
++
 +#ifndef __QCOM_CLK_HFPLL_H__
 +#define __QCOM_CLK_HFPLL_H__
 +
