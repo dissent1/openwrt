@@ -1,20 +1,17 @@
-From patchwork Tue Dec 19 15:54:53 2017
+From patchwork Fri Dec  8 09:42:25 2017
 Content-Type: text/plain; charset="utf-8"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Subject: [v5,08/15] clk: qcom: Add support for Krait clocks
+Subject: [v4,07/12] clk: qcom: Add support for Krait clocks
 From: Sricharan R <sricharan@codeaurora.org>
-X-Patchwork-Id: 10123633
-Message-Id: <1513698900-10638-9-git-send-email-sricharan@codeaurora.org>
-To: robh+dt@kernel.org, mark.rutland@arm.com, mturquette@baylibre.com,
- sboyd@codeaurora.org, linux@armlinux.org.uk, andy.gross@linaro.org,
- david.brown@linaro.org, rjw@rjwysocki.net, viresh.kumar@linaro.org,
- linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-clk@vger.kernel.org,
- linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
- linux-pm@vger.kernel.org
+X-Patchwork-Id: 10102051
+Message-Id: <1512726150-7204-8-git-send-email-sricharan@codeaurora.org>
+To: mturquette@baylibre.com, sboyd@codeaurora.org,
+ devicetree@vger.kernel.org, linux-pm@vger.kernel.org,
+ linux-arm-msm@vger.kernel.org, linux-kernel@vger.kernel.org,
+ viresh.kumar@linaro.org, linux-arm-kernel@lists.infradead.org
 Cc: sricharan@codeaurora.org
-Date: Tue, 19 Dec 2017 21:24:53 +0530
+Date: Fri,  8 Dec 2017 15:12:25 +0530
 
 From: Stephen Boyd <sboyd@codeaurora.org>
 
@@ -28,15 +25,15 @@ Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 ---
  drivers/clk/qcom/Kconfig     |   4 ++
  drivers/clk/qcom/Makefile    |   1 +
- drivers/clk/qcom/clk-krait.c | 124 +++++++++++++++++++++++++++++++++++++++++++
- drivers/clk/qcom/clk-krait.h |  38 +++++++++++++
- 4 files changed, 167 insertions(+)
+ drivers/clk/qcom/clk-krait.c | 134 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/clk/qcom/clk-krait.h |  48 ++++++++++++++++
+ 4 files changed, 187 insertions(+)
  create mode 100644 drivers/clk/qcom/clk-krait.c
  create mode 100644 drivers/clk/qcom/clk-krait.h
 
 --- a/drivers/clk/qcom/Kconfig
 +++ b/drivers/clk/qcom/Kconfig
-@@ -204,3 +204,7 @@ config QCOM_HFPLL
+@@ -187,3 +187,7 @@ config QCOM_HFPLL
  	  Support for the high-frequency PLLs present on Qualcomm devices.
  	  Say Y if you want to support CPU frequency scaling on devices
  	  such as MSM8974, APQ8084, etc.
@@ -46,7 +43,7 @@ Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 +	select KRAIT_L2_ACCESSORS
 --- a/drivers/clk/qcom/Makefile
 +++ b/drivers/clk/qcom/Makefile
-@@ -10,6 +10,7 @@ clk-qcom-y += clk-rcg2.o
+@@ -9,6 +9,7 @@ clk-qcom-y += clk-rcg2.o
  clk-qcom-y += clk-branch.o
  clk-qcom-y += clk-regmap-divider.o
  clk-qcom-y += clk-regmap-mux.o
@@ -56,9 +53,19 @@ Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
  clk-qcom-$(CONFIG_QCOM_GDSC) += gdsc.o
 --- /dev/null
 +++ b/drivers/clk/qcom/clk-krait.c
-@@ -0,0 +1,124 @@
-+// SPDX-License-Identifier: GPL-2.0
-+// Copyright (c) 2017, The Linux Foundation. All rights reserved.
+@@ -0,0 +1,134 @@
++/*
++ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 and
++ * only version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
 +#include <linux/kernel.h>
 +#include <linux/module.h>
@@ -183,9 +190,19 @@ Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 +EXPORT_SYMBOL_GPL(krait_div2_clk_ops);
 --- /dev/null
 +++ b/drivers/clk/qcom/clk-krait.h
-@@ -0,0 +1,38 @@
-+// SPDX-License-Identifier: GPL-2.0
-+// Copyright (c) 2017, The Linux Foundation. All rights reserved.
+@@ -0,0 +1,48 @@
++/*
++ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 and
++ * only version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
 +#ifndef __QCOM_CLK_KRAIT_H
 +#define __QCOM_CLK_KRAIT_H
