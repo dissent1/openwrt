@@ -1,17 +1,20 @@
-From patchwork Fri Dec  8 09:42:24 2017
+From patchwork Tue Dec 19 15:54:52 2017
 Content-Type: text/plain; charset="utf-8"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Subject: [v4,06/12] clk: qcom: Add IPQ806X's HFPLLs
+Subject: [v5,07/15] clk: qcom: Add IPQ806X's HFPLLs
 From: Sricharan R <sricharan@codeaurora.org>
-X-Patchwork-Id: 10102047
-Message-Id: <1512726150-7204-7-git-send-email-sricharan@codeaurora.org>
-To: mturquette@baylibre.com, sboyd@codeaurora.org,
- devicetree@vger.kernel.org, linux-pm@vger.kernel.org,
- linux-arm-msm@vger.kernel.org, linux-kernel@vger.kernel.org,
- viresh.kumar@linaro.org, linux-arm-kernel@lists.infradead.org
+X-Patchwork-Id: 10123653
+Message-Id: <1513698900-10638-8-git-send-email-sricharan@codeaurora.org>
+To: robh+dt@kernel.org, mark.rutland@arm.com, mturquette@baylibre.com,
+ sboyd@codeaurora.org, linux@armlinux.org.uk, andy.gross@linaro.org,
+ david.brown@linaro.org, rjw@rjwysocki.net, viresh.kumar@linaro.org,
+ linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-clk@vger.kernel.org,
+ linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
+ linux-pm@vger.kernel.org
 Cc: sricharan@codeaurora.org
-Date: Fri,  8 Dec 2017 15:12:24 +0530
+Date: Tue, 19 Dec 2017 21:24:52 +0530
 
 From: Stephen Boyd <sboyd@codeaurora.org>
 
