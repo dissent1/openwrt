@@ -1,0 +1,42 @@
+From e665a96a4e476dd8cc0baa7f309dfe7a12a9a4d2 Mon Sep 17 00:00:00 2001
+From: Rajkumar Ayyasamy <arajkuma@codeaurora.org>
+Date: Fri, 22 Dec 2017 15:54:04 +0530
+Subject: tty: serial: msm: make tx watermark configurable
+
+This patch makes the tx watermark configurable from
+dts and setting it to zero for uart console.
+By setting tx watermark to zero, serial driver cpu
+utilization is getting reduced.
+
+Change-Id: If1964a6d3e2c818187e3a6e64e929dc533f2b32e
+Signed-off-by: Rajkumar Ayyasamy <arajkuma@codeaurora.org>
+---
+ arch/arm/boot/dts/qcom-ipq4019.dtsi | 1 +
+ drivers/tty/serial/msm_serial.c     | 5 ++++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/tty/serial/msm_serial.c b/drivers/tty/serial/msm_serial.c
+index f7a9006..fdc9b6c 100644
+--- a/drivers/tty/serial/msm_serial.c
++++ b/drivers/tty/serial/msm_serial.c
+@@ -1114,6 +1114,8 @@ static int msm_set_baud_rate(struct uart_port *port, unsigned int baud,
+ 	struct msm_port *msm_port = UART_TO_MSM(port);
+ 	const struct msm_baud_map *entry;
+ 	unsigned long flags, rate;
++	struct device *dev = msm_port->uart.dev;
++	u32 tx_watermark = 10;
+ 
+ 	flags = *saved_flags;
+ 	spin_unlock_irqrestore(&port->lock, flags);
+@@ -1147,7 +1149,8 @@ static int msm_set_baud_rate(struct uart_port *port, unsigned int baud,
+ 	msm_write(port, watermark, UART_RFWR);
+ 
+ 	/* set TX watermark */
+-	msm_write(port, 10, UART_TFWR);
++	of_property_read_u32(dev->of_node, "tx-watermark", &tx_watermark);
++	msm_write(port, tx_watermark, UART_TFWR);
+ 
+ 	msm_write(port, UART_CR_CMD_PROTECTION_EN, UART_CR);
+ 
+-- 
+cgit v1.1
