@@ -1,0 +1,31 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+set_irq_affinity() {
+	local name="$1"
+	local val="$2"
+
+  	local irq=`grep -m 1 "$name" /proc/interrupts | cut -d: -f1 | sed 's, *,,'`
+	[ -n "$irq" ] && $(echo "$val" > "/proc/irq/$irq/smp_affinity") || echo "$name irq not found."
+}
+
+start() {
+
+. /lib/functions.sh
+
+local board=$(board_name)
+
+case "$board" in
+mir3g|\
+mir3g-nor)
+	set_irq_affinity 1e100000.ethernet 1
+	set_irq_affinity mt7603e 2
+	set_irq_affinity xhci-hcd:usb1 4
+	set_irq_affinity mt76x2e 8
+	;;
+*)
+	echo "Unsupported hardware. CPU affinity is not adjusted."
+	;;
+esac
+}
