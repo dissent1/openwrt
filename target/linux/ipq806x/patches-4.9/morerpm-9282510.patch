@@ -1,0 +1,114 @@
+From 92825100ea905d72dfac99aa42992a7c47352b1b Mon Sep 17 00:00:00 2001
+From: Pavel Kubelun <be.dissent@gmail.com>
+Date: Fri, 2 Feb 2018 13:23:41 +0300
+Subject: [PATCH] morerpm
+
+---
+ drivers/clk/qcom/fab_scaling.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 51 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/qcom/fab_scaling.c b/drivers/clk/qcom/fab_scaling.c
+index 461dfcc..8b13b9b 100644
+--- a/drivers/clk/qcom/fab_scaling.c
++++ b/drivers/clk/qcom/fab_scaling.c
+@@ -28,6 +28,8 @@
+ 
+ #define APPS_FAB_CLK	"apps-fab-clk"
+ #define DDR_FAB_CLK		"ddr-fab-clk"
++#define NSS_FAB0_CLK		"nss-fab0-clk"
++#define NSS_FAB1_CLK		"nss-fab1-clk"
+ 
+ static u32 fab_freq_high;
+ static u32 fab_freq_nominal;
+@@ -36,12 +38,15 @@ static u32 fab_cur_freq;
+ 
+ static struct clk *apps_fab_clk;
+ static struct clk *ddr_fab_clk;
++static struct clk *nss_fab0_clk;
++static struct clk *nss_fab1_clk;
+ 
+ void scale_fabrics(unsigned long max_cpu_freq)
+ {	
+ 	unsigned long new_freq;
+ 
+-	if (!apps_fab_clk || !ddr_fab_clk)
++	if (!apps_fab_clk || !ddr_fab_clk || 
++		nss_fab0_clk || nss_fab1_clk)
+ 		return;
+ 
+ 	if (max_cpu_freq > cpu_freq_threshold)
+@@ -52,6 +57,8 @@ void scale_fabrics(unsigned long max_cpu_freq)
+ 	if (new_freq != fab_cur_freq) {
+ 		clk_set_rate(apps_fab_clk, new_freq);
+ 		clk_set_rate(ddr_fab_clk, new_freq);
++		clk_set_rate(nss_fab0_clk, new_freq);
++		clk_set_rate(nss_fab1_clk, new_freq / 2);
+ 		fab_cur_freq = new_freq;
+ 	}
+ 
+@@ -99,9 +106,6 @@ static int ipq806x_fab_scaling_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
+-	clk_set_rate(apps_fab_clk, fab_freq_nominal);
+-	clk_prepare_enable(apps_fab_clk);
+-
+ 	ddr_fab_clk = devm_clk_get(&pdev->dev, DDR_FAB_CLK);
+ 	ret = PTR_ERR_OR_ZERO(ddr_fab_clk);
+ 	if (ret) {
+@@ -119,9 +123,52 @@ static int ipq806x_fab_scaling_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
++	nss_fab0_clk = devm_clk_get(&pdev->dev, NSS_FAB0_CLK);
++	ret = PTR_ERR_OR_ZERO(nss_fab0_clk);
++	if (ret) {
++		/*
++		 * If nss fab0 clk node is present, but clock is not yet
++		 * registered, we should try defering probe.
++		 */
++		if (ret == -EPROBE_DEFER) {
++			pr_warn("NSS FABRIC0 clock is not ready, retry\n");
++			return ret;
++		} else {
++			pr_err("Failed to get NSS FABRIC0 clock: %d\n", ret);
++			nss_fab0_clk = 0;
++			return -ENODEV;
++		}
++	}
++
++	nss_fab1_clk = devm_clk_get(&pdev->dev, NSS_FAB1_CLK);
++	ret = PTR_ERR_OR_ZERO(nss_fab1_clk);
++	if (ret) {
++		/*
++		 * If nss fab1 clk node is present, but clock is not yet
++		 * registered, we should try defering probe.
++		 */
++		if (ret == -EPROBE_DEFER) {
++			pr_warn("NSS FABRIC1 clock is not ready, retry\n");
++			return ret;
++		} else {
++			pr_err("Failed to get NSS FABRIC1 clock: %d\n", ret);
++			nss_fab1_clk = 0;
++			return -ENODEV;
++		}
++	}
++
++	clk_set_rate(apps_fab_clk, fab_freq_nominal);
++	clk_prepare_enable(apps_fab_clk);
++
+ 	clk_set_rate(ddr_fab_clk, fab_freq_nominal);
+ 	clk_prepare_enable(ddr_fab_clk);
+ 
++	clk_set_rate(nss_fab0_clk, fab_freq_nominal);
++	clk_prepare_enable(nss_fab0_clk);
++
++	clk_set_rate(nss_fab1_clk, fab_freq_nominal / 2);
++	clk_prepare_enable(nss_fab1_clk);
++
+ 	return 0;
+ }
+ 
+--
+Working Copy 3.0.6
+
