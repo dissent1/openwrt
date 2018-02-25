@@ -65,6 +65,10 @@ ramips_setup_interfaces()
 		ucidef_add_switch_attr "switch0" "enable" "false"
 		ucidef_set_interface_lan "eth0"
 		;;
+	mir3p)
+		ucidef_add_switch "switch0" \
+			"1:lan:3" "2:lan:2" "3:lan:1" "4:wan" "6@eth0"
+		;;
 	mlw221|\
 	mr-102n)
 		ucidef_set_interface_lan "eth0.2"
@@ -369,6 +373,9 @@ ramips_setup_macs()
 	mac1200rv2)
 		lan_mac=$(mtd_get_mac_binary factory_info 13)
 		wan_mac=$(macaddr_add "$lan_mac" 1)
+		;;
+	mir3p)
+		lan_mac=$(mtd_get_mac_binary Factory 0xe006)
 		;;
 	miwifi-mini)
 		wan_mac=$(cat /sys/class/net/eth0/address)

@@ -158,6 +158,7 @@ get_status_led() {
 		;;
 	m3|\
 	m4|\
+	mir3p|\
 	miwifi-nano)
 		status_led="$board:blue:status"
 		;;
