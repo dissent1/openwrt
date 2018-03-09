@@ -1,0 +1,29 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+set_irq_affinity() {
+	local name="$1"
+	local val="$2"
+
+  	local irq=`grep -m 1 "$name" /proc/interrupts | cut -d: -f1 | sed 's, *,,'`
+	[ -n "$irq" ] && $(echo "$val" > "/proc/irq/$irq/smp_affinity") || echo "$name irq not found."
+}
+
+start() {
+
+. /lib/functions.sh
+
+case $(board_name) in
+armada-385-linksys-rango)
+	set_irq_affinity mv64xxx_i2c 2
+	set_irq_affinity f1090000.crypto 2
+	set_irq_affinity xhci-hcd:usb2 2
+	set_irq_affinity f1060900.xor 2
+	set_irq_affinity mwlwifi 2
+	;;
+*)
+	echo "Unsupported hardware. CPU affinity is not adjusted."
+	;;
+esac
+}
