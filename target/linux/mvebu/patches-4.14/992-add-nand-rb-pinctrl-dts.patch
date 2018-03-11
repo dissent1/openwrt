@@ -1,0 +1,32 @@
+From ba369daa40f18e46047e5b7467d9580d9b9728a5 Mon Sep 17 00:00:00 2001
+From: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+Date: Tue, 28 Nov 2017 09:49:02 +0100
+Subject: ARM: dts: armada-38x: Add NAND RB pinctrl information
+
+Add pin control information for the NAND flash interface.
+
+Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ arch/arm/boot/dts/armada-38x.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/armada-38x.dtsi b/arch/arm/boot/dts/armada-38x.dtsi
+index 00ff549..a6cc568 100644
+--- a/arch/arm/boot/dts/armada-38x.dtsi
++++ b/arch/arm/boot/dts/armada-38x.dtsi
+@@ -279,6 +279,11 @@
+ 					marvell,function = "dev";
+ 				};
+ 
++				nand_rb: nand-rb {
++					marvell,pins = "mpp41";
++					marvell,function = "nand";
++				};
++
+ 				uart0_pins: uart-pins-0 {
+ 					marvell,pins = "mpp0", "mpp1";
+ 					marvell,function = "ua0";
+-- 
+cgit v1.1
+
