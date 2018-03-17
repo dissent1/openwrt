@@ -1,0 +1,25 @@
+From 838717a7e07f6b684f14c78492bf59101a1a4038 Mon Sep 17 00:00:00 2001
+From: Pavel Kubelun <be.dissent@gmail.com>
+Date: Sat, 17 Mar 2018 03:04:50 +0300
+Subject: [PATCH] remove generic timer
+
+---
+ arch/arm/mach-mvebu/Kconfig | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm/mach-mvebu/Kconfig b/arch/arm/mach-mvebu/Kconfig
+index 6f13a30..e3f583a 100644
+--- a/arch/arm/mach-mvebu/Kconfig
++++ b/arch/arm/mach-mvebu/Kconfig
+@@ -56,8 +56,6 @@ config MACH_ARMADA_38X
+ 	bool "Marvell Armada 380/385 boards"
+ 	depends on ARCH_MULTI_V7
+ 	select ARM_GIC
+-	select ARM_GLOBAL_TIMER
+-	select CLKSRC_ARM_GLOBAL_TIMER_SCHED_CLOCK
+ 	select ARMADA_370_XP_IRQ
+ 	select ARMADA_38X_CLK
+ 	select HAVE_ARM_SCU
+--
+Working Copy 3.0.6
+
