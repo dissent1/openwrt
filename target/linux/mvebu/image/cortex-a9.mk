@@ -10,7 +10,11 @@ ifeq ($(SUBTARGET),cortexa9)
 
 define Device/linksys
   DEVICE_TITLE := Linksys $(1)
-  DEVICE_PACKAGES := kmod-mwlwifi wpad-mini swconfig
+  DEVICE_PACKAGES := kmod-mwlwifi wpad swconfig \
+	block-mount e2fsprogs openssl-util luci luci-app-minidlna \
+	luci-app-transmission transmission-daemon-openssl \
+	kmod-usb-storage kmod-fs-ext4 minidlna nano htop rng-tools \
+	aria2 luci-app-aria2 samba36-server luci-app-samba openssh-sftp-server
 endef
 
 define Device/armada-385-linksys
