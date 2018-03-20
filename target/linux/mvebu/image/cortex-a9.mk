@@ -39,7 +39,7 @@ TARGET_DEVICES += linksys_wrt1900acv2
 define Device/linksys_wrt3200acm
   $(call Device/linksys,WRT3200ACM (Rango))
   DEVICE_DTS := armada-385-linksys-rango
-  DEVICE_PACKAGES += kmod-btmrvl kmod-mwifiex-sdio mwlwifi-firmware-88w8964
+  DEVICE_PACKAGES += mwlwifi-firmware-88w8964
   SUPPORTED_DEVICES := armada-385-linksys-rango linksys,rango
 endef
 TARGET_DEVICES += linksys_wrt3200acm
