@@ -21,6 +21,7 @@ armada-385-linksys-rango)
 	set_irq_affinity xhci-hcd:usb2 2
 	set_irq_affinity f1060900.xor 2
 	set_irq_affinity mwlwifi 2
+	set_irq_affinity ahci-mvebu 2
 	;;
 *)
 	echo "Unsupported hardware. CPU affinity is not adjusted."
