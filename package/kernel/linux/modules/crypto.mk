@@ -661,13 +661,15 @@ define KernelPackage/crypto-user
   DEPENDS:=+kmod-crypto-hash +kmod-crypto-manager
   KCONFIG:= \
 	CONFIG_CRYPTO_USER_API \
+	CONFIG_CRYPTO_USER_API_AEAD \
 	CONFIG_CRYPTO_USER_API_HASH \
 	CONFIG_CRYPTO_USER_API_SKCIPHER
   FILES:= \
 	$(LINUX_DIR)/crypto/af_alg.ko \
+	$(LINUX_DIR)/crypto/algif_aead.ko \
 	$(LINUX_DIR)/crypto/algif_hash.ko \
 	$(LINUX_DIR)/crypto/algif_skcipher.ko
-  AUTOLOAD:=$(call AutoLoad,09,af_alg algif_hash algif_skcipher)
+  AUTOLOAD:=$(call AutoLoad,09,af_alg algif_aead algif_hash algif_skcipher)
   $(call AddDepends/crypto)
 endef
 
