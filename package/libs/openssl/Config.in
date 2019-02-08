@@ -277,6 +277,14 @@ config OPENSSL_ENGINE_CRYPTO
 	bool
 	default OPENSSL_ENGINE_BUILTIN_DEVCRYPTO || PACKAGE_libopenssl-devcrypto
 
+config OPENSSL_ENGINE_AFALG_ZC
+	bool
+	prompt "Use zero-copy mode in AF_ALG engine"
+	depends on OPENSSL_ENGINE_BUILTIN_AFALG || PACKAGE_libopenssl-afalg
+	help
+		This is supposed to speed up the engine, but openssl speed
+		seem to indicate the opposite.  YMMV.
+
 config OPENSSL_ENGINE_BUILTIN_DEVCRYPTO
 	bool
 	prompt "Acceleration support through /dev/crypto"
