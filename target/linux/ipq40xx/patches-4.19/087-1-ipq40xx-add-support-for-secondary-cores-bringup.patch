@@ -1,0 +1,178 @@
+From d08b21918da2f114d845448cf475c88ba8eb08e5 Mon Sep 17 00:00:00 2001
+From: Sricharan R <sricharan@codeaurora.org>
+Date: Sat, 29 Nov 2014 20:12:55 +0530
+Subject: ARM: Add support for qca961x secondary cores
+
+Adding the secondary cores startup function.
+
+Conflicts:
+	Documentation/devicetree/bindings/arm/cpus.txt
+
+Signed-off-by: Sricharan R <sricharan@codeaurora.org>
+(cherry picked from commit a487c0f30d687a3245b2fa19676d0254db93a764)
+
+Change-Id: I623237e48955a140d1a974c26762c6fe6a191e0b
+Signed-off-by: Prasanna Kumar Thoorvas Samyrao Muralidharan <ptsm@codeaurora.org>
+---
+ Documentation/devicetree/bindings/arm/cpus.txt |  1 +
+ arch/arm/boot/dts/qcom-ipq4019.dtsi            | 16 +++----
+ arch/arm/mach-qcom/platsmp.c                   | 62 ++++++++++++++++++++++++++
+ 3 files changed, 71 insertions(+), 8 deletions(-)
+
+--- a/Documentation/devicetree/bindings/arm/cpus.txt
++++ b/Documentation/devicetree/bindings/arm/cpus.txt
+@@ -216,6 +216,7 @@ described below.
+ 			    "marvell,98dx3236-smp"
+ 			    "mediatek,mt6589-smp"
+ 			    "mediatek,mt81xx-tz-smp"
++			    "qcom,arm-cortex-a7acc"
+ 			    "qcom,gcc-msm8660"
+ 			    "qcom,kpss-acc-v1"
+ 			    "qcom,kpss-acc-v2"
+--- a/arch/arm/boot/dts/qcom-ipq4019.dtsi
++++ b/arch/arm/boot/dts/qcom-ipq4019.dtsi
+@@ -52,7 +52,7 @@
+ 		cpu@0 {
+ 			device_type = "cpu";
+ 			compatible = "arm,cortex-a7";
+-			enable-method = "qcom,kpss-acc-v2";
++			enable-method = "qcom,arm-cortex-a7acc";
+ 			next-level-cache = <&L2>;
+ 			qcom,acc = <&acc0>;
+ 			qcom,saw = <&saw0>;
+@@ -66,7 +66,7 @@
+ 		cpu@1 {
+ 			device_type = "cpu";
+ 			compatible = "arm,cortex-a7";
+-			enable-method = "qcom,kpss-acc-v2";
++			enable-method = "qcom,arm-cortex-a7acc";
+ 			next-level-cache = <&L2>;
+ 			qcom,acc = <&acc1>;
+ 			qcom,saw = <&saw1>;
+@@ -80,7 +80,7 @@
+ 		cpu@2 {
+ 			device_type = "cpu";
+ 			compatible = "arm,cortex-a7";
+-			enable-method = "qcom,kpss-acc-v2";
++			enable-method = "qcom,arm-cortex-a7acc";
+ 			next-level-cache = <&L2>;
+ 			qcom,acc = <&acc2>;
+ 			qcom,saw = <&saw2>;
+@@ -94,7 +94,7 @@
+ 		cpu@3 {
+ 			device_type = "cpu";
+ 			compatible = "arm,cortex-a7";
+-			enable-method = "qcom,kpss-acc-v2";
++			enable-method = "qcom,arm-cortex-a7acc";
+ 			next-level-cache = <&L2>;
+ 			qcom,acc = <&acc3>;
+ 			qcom,saw = <&saw3>;
+@@ -306,22 +306,22 @@
+ 		};
+ 
+                 acc0: clock-controller@b088000 {
+-                        compatible = "qcom,kpss-acc-v2";
++                        compatible = "qcom,arm-cortex-a7acc";
+                         reg = <0x0b088000 0x1000>, <0xb008000 0x1000>;
+                 };
+ 
+                 acc1: clock-controller@b098000 {
+-                        compatible = "qcom,kpss-acc-v2";
++                        compatible = "qcom,arm-cortex-a7acc";
+                         reg = <0x0b098000 0x1000>, <0xb008000 0x1000>;
+                 };
+ 
+                 acc2: clock-controller@b0a8000 {
+-                        compatible = "qcom,kpss-acc-v2";
++                        compatible = "qcom,arm-cortex-a7acc";
+                         reg = <0x0b0a8000 0x1000>, <0xb008000 0x1000>;
+                 };
+ 
+                 acc3: clock-controller@b0b8000 {
+-                        compatible = "qcom,kpss-acc-v2";
++                        compatible = "qcom,arm-cortex-a7acc";
+                         reg = <0x0b0b8000 0x1000>, <0xb008000 0x1000>;
+                 };
+ 
+--- a/arch/arm/mach-qcom/platsmp.c
++++ b/arch/arm/mach-qcom/platsmp.c
+@@ -89,6 +89,53 @@ static int scss_release_secondary(unsign
+ 	return 0;
+ }
+ 
++static int a7ss_release_secondary(unsigned int cpu)
++{
++	struct device_node *node;
++	void __iomem *base;
++	struct resource res;
++
++	node = of_find_compatible_node(NULL, NULL, "qcom,arm-cortex-a7acc");
++	if (!node) {
++		pr_err("%s: can't find node\n", __func__);
++		return -ENXIO;
++	}
++
++	if (of_address_to_resource(node, 0, &res)) {
++		of_node_put(node);
++		return -ENXIO;
++	}
++
++	res.start += cpu * 0x10000;
++
++	base = ioremap(res.start, 0x1000);
++	of_node_put(node);
++
++	if (!base)
++		return -ENOMEM;
++
++
++	printk("Fix me, the below initializations should be done by rom ?");
++
++	if (0) {
++		writel_relaxed(0x00000033, base + 0x04);
++		mb(); /* barrier */
++
++		writel_relaxed(0x10000001, base + 0x14);
++		mb(); /* barrier */
++		udelay(2);
++
++		writel_relaxed(0x00020008, base + 0x04);
++		mb(); /* barrier */
++
++		writel_relaxed(0x00020088, base + 0x04);
++		mb(); /* barrier */
++	}
++
++	iounmap(base);
++	return 0;
++}
++
+ static int kpssv1_release_secondary(unsigned int cpu)
+ {
+ 	int ret = 0;
+@@ -307,6 +354,11 @@ static int msm8660_boot_secondary(unsign
+ 	return qcom_boot_secondary(cpu, scss_release_secondary);
+ }
+ 
++static int a7ss_boot_secondary(unsigned int cpu, struct task_struct *idle)
++{
++	return qcom_boot_secondary(cpu, a7ss_release_secondary);
++}
++
+ static int kpssv1_boot_secondary(unsigned int cpu, struct task_struct *idle)
+ {
+ 	return qcom_boot_secondary(cpu, kpssv1_release_secondary);
+@@ -361,3 +413,13 @@ static const struct smp_operations qcom_
+ #endif
+ };
+ CPU_METHOD_OF_DECLARE(qcom_smp_kpssv2, "qcom,kpss-acc-v2", &qcom_smp_kpssv2_ops);
++
++static struct smp_operations qcom_smp_a7ss_ops __initdata = {
++	.smp_prepare_cpus       = qcom_smp_prepare_cpus,
++	.smp_secondary_init     = qcom_secondary_init,
++	.smp_boot_secondary     = a7ss_boot_secondary,
++#ifdef CONFIG_HOTPLUG_CPU
++	.cpu_die                = qcom_cpu_die,
++#endif
++};
++CPU_METHOD_OF_DECLARE(qcom_smp_a7ss, "qcom,arm-cortex-a7acc", &qcom_smp_a7ss_ops);
