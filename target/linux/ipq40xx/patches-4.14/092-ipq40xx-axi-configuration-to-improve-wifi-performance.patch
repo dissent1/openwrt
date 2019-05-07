@@ -1,0 +1,50 @@
+From c12fe5ab431b2fbf0f7cf787fae5aae4c62eff44 Mon Sep 17 00:00:00 2001
+From: dissent1 <be.dissent@gmail.com>
+Date: Tue, 7 May 2019 11:14:31 +0300
+Subject: [PATCH] ipq40xx: axi configuration to improve wifi perf
+
+Original commit message:
+WIFI0_GLB_CFG - set AXID_EN and Use locally generated socslv_wxi_bvalid
+PNOC_SNOC_MEMTYPE_M0_M2 - set memory attribute as Normal
+
+Change-Id: If6d46b2d8805ada520bf0fe6b497b989d443c2ec
+Signed-off-by: Senthilkumar N L <snlakshm@codeaurora.org>
+
+Signed-off-by: Pavel Kubelun <be.dissent@gmail.com>
+
+---
+ arch/arm/boot/dts/qcom-ipq4019.dtsi | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/arm/boot/dts/qcom-ipq4019.dtsi b/arch/arm/boot/dts/qcom-ipq4019.dtsi
+index c0cb21a777..08a0bd76c9 100644
+--- a/arch/arm/boot/dts/qcom-ipq4019.dtsi
++++ b/arch/arm/boot/dts/qcom-ipq4019.dtsi
+@@ -17,6 +17,7 @@
+ #include <dt-bindings/clock/qcom,gcc-ipq4019.h>
+ #include <dt-bindings/interrupt-controller/arm-gic.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/soc/qcom,tcsr.h>
+ 
+ / {
+ 	model = "Qualcomm Technologies, Inc. IPQ4019";
+@@ -485,6 +486,18 @@
+ 			};
+ 		};
+ 
++		wifi_glb_tcsr: tcsr@1949000 {
++			compatible = "qcom,tcsr";
++			reg = <0x1949000 0x100>;
++			qcom,wifi_glb_cfg = <TCSR_WIFI_GLB_CFG>;
++		};
++
++		wifi_noc_memtype_m0_m2_tcsr: tcsr@1957000 {
++			compatible = "qcom,tcsr";
++			reg = <0x1957000 0x100>;
++			qcom,wifi_noc_memtype_m0_m2 = <TCSR_WIFI_NOC_MEMTYPE_M0_M2>;
++		};
++
+ 		wifi0: wifi@a000000 {
+ 			compatible = "qcom,ipq4019-wifi";
+ 			reg = <0xa000000 0x200000>;
+
