@@ -15,15 +15,13 @@ Signed-off-by: Pavel Kubelun <be.dissent@gmail.com>
 
 --- a/arch/arm/boot/dts/qcom-ipq4019.dtsi
 +++ b/arch/arm/boot/dts/qcom-ipq4019.dtsi
-@@ -145,9 +145,9 @@
+@@ -145,7 +145,7 @@
  	};
  
  	clocks {
 -		sleep_clk: sleep_clk {
 +		sleep_clk: gcc_sleep_clk_src {
  			compatible = "fixed-clock";
--			clock-frequency = <32768>;
-+			clock-frequency = <32000>;
+ 			clock-frequency = <32768>;
  			#clock-cells = <0>;
- 		};
  
