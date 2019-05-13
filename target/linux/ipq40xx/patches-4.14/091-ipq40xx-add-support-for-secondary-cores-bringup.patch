@@ -102,7 +102,7 @@ diff --git a/arch/arm/mach-qcom/platsmp.c b/arch/arm/mach-qcom/platsmp.c
 index 7748d0c..f476a71 100644
 --- a/arch/arm/mach-qcom/platsmp.c
 +++ b/arch/arm/mach-qcom/platsmp.c
-@@ -174,6 +174,53 @@ static int scss_release_secondary(unsigned int cpu)
+@@ -89,6 +89,53 @@ static int scss_release_secondary(unsigned int cpu)
  	return 0;
  }
  
@@ -131,23 +131,23 @@ index 7748d0c..f476a71 100644
 +	if (!base)
 +		return -ENOMEM;
 +
++	/* Enable Clamp signal and assert core reset */
++	writel_relaxed(0x00000033, base + 0x04);
++	mb(); /* barrier */
 +
-+	printk("Fix me, the below initializations should be done by rom ?");
++	/* Set GDHS and delay counter */
++	writel_relaxed(0x20000001, base + 0x14);
++	mb(); /* barrier */
 +
-+	if (0) {
-+		writel_relaxed(0x00000033, base + 0x04);
-+		mb(); /* barrier */
++	udelay(2);
 +
-+		writel_relaxed(0x10000001, base + 0x14);
-+		mb(); /* barrier */
-+		udelay(2);
++	/* Enable Core memory HS */
++	writel_relaxed(0x00020008, base + 0x04);
++	mb(); /* barrier */
 +
-+		writel_relaxed(0x00020008, base + 0x04);
-+		mb(); /* barrier */
-+
-+		writel_relaxed(0x00020088, base + 0x04);
-+		mb(); /* barrier */
-+	}
++	/* Report that the CPU is powered up */
++	writel_relaxed(0x00020088, base + 0x04);
++	mb(); /* barrier */
 +
 +	iounmap(base);
 +	return 0;
@@ -156,7 +156,7 @@ index 7748d0c..f476a71 100644
  static int kpssv1_release_secondary(unsigned int cpu)
  {
  	int ret = 0;
-@@ -397,6 +444,11 @@ static int msm8660_boot_secondary(unsigned int cpu, struct task_struct *idle)
+@@ -307,6 +354,11 @@ static int msm8660_boot_secondary(unsigned int cpu, struct task_struct *idle)
  	return qcom_boot_secondary(cpu, scss_release_secondary);
  }
  
@@ -168,7 +168,7 @@ index 7748d0c..f476a71 100644
  static int kpssv1_boot_secondary(unsigned int cpu, struct task_struct *idle)
  {
  	return qcom_boot_secondary(cpu, kpssv1_release_secondary);
-@@ -461,3 +513,13 @@ static struct smp_operations qcom_smp_kpssv2_ops __initdata = {
+@@ -361,3 +413,13 @@ static const struct smp_operations qcom_smp_kpssv2_ops __initconst = {
  #endif
  };
  CPU_METHOD_OF_DECLARE(qcom_smp_kpssv2, "qcom,kpss-acc-v2", &qcom_smp_kpssv2_ops);
