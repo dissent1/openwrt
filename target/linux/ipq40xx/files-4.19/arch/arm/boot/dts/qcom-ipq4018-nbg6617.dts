@@ -16,7 +16,7 @@
 		 * which we don't want... but we have to overwrite them or else
 		 * the kernel will take them at face value.
 		 */
-		bootargs-append = " mtdparts= root=31:13";
+		bootargs-append = " mtdparts= root=31:13 coherent_pool=1M";
 	};
 
 	aliases {
