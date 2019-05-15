@@ -1,0 +1,39 @@
+From 72e1d283c1ace7cb467578df42506085059406a5 Mon Sep 17 00:00:00 2001
+From: Rakesh Nair <ranair@codeaurora.org>
+Date: Fri, 19 May 2017 22:21:01 +0530
+Subject: [edma] Add support for checksum verification in edma
+
+Change-Id: I66c92d5e40056ccfd156049375928e93a9ee5a2a
+Signed-off-by: Rakesh Nair <ranair@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/essedma/edma.c     | 7 ++++++-
+ drivers/net/ethernet/qualcomm/essedma/ess_edma.h | 2 ++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/ethernet/qualcomm/essedma/edma.c
++++ b/drivers/net/ethernet/qualcomm/essedma/edma.c
+@@ -360,7 +360,12 @@ static void edma_receive_checksum(struct
+ 	if (rd->rrd6 & EDMA_RRD_CSUM_FAIL_MASK)
+ 		return;
+ 
+-	skb->ip_summed = CHECKSUM_UNNECESSARY;
++	/*
++	 * We disable checksum verification only if
++	 * we have a TCP/UDP packet
++	 */
++	if (rd->rrd7 & (EDMA_RRD_L4OFFSET_MASK << EDMA_RRD_L4OFFSET_SHIFT))
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ }
+ 
+ /* edma_clean_rfd()
+--- a/drivers/net/ethernet/qualcomm/essedma/ess_edma.h
++++ b/drivers/net/ethernet/qualcomm/essedma/ess_edma.h
+@@ -329,6 +329,8 @@ struct edma_hw;
+ #define EDMA_RRD_PRIORITY_MASK 0x7
+ #define EDMA_RRD_PORT_TYPE_SHIFT 7
+ #define EDMA_RRD_PORT_TYPE_MASK 0x1F
++#define EDMA_RRD_L4OFFSET_SHIFT 4
++#define EDMA_RRD_L4OFFSET_MASK 0xFF
+ 
+ #define ESS_RGMII_CTRL		0x0004
+ 
