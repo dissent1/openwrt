@@ -1,0 +1,33 @@
+From 28bca2e46c19869b70b5d8e761f441a865679e02 Mon Sep 17 00:00:00 2001
+From: Swaraj Sha <ssha@codeaurora.org>
+Date: Fri, 24 Nov 2017 14:17:22 +0530
+Subject: [qca-edma] : Fix for tx queue to virtual queue mapping through sysctl
+
+Change-Id: I8a28a9f49ea0289b2218224ab69057068139ce51
+Signed-off-by: Swaraj Sha <ssha@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/essedma/edma_axi.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+--- a/drivers/net/ethernet/qualcomm/essedma/edma_axi.c
++++ b/drivers/net/ethernet/qualcomm/essedma/edma_axi.c
+@@ -539,16 +539,16 @@ static int edma_queue_to_virtual_queue_m
+ 
+ 		virtual_qid = edma_queue_to_virtual_q >>
+ 			EDMA_WRR_VID_SCTL_SHIFT;
+-		if (virtual_qid < 0 || virtual_qid > 8) {
++		if (virtual_qid < 0 || virtual_qid > 7) {
+ 			pr_err("queue_id not within desired range\n");
+ 			return -EINVAL;
+ 		}
+ 
+ 		data = virtual_qid << EDMA_VQ_ID_SHIFT(queue_id);
+ 
+-		reg_addr = EDMA_REG_VQ_CTRL0 + (queue_id & ~0x3);
++		reg_addr = EDMA_REG_VQ_CTRL0 + ((queue_id & ~0x7) >> 1);
+ 		edma_read_reg(reg_addr, &reg_data);
+-		reg_data &= ~(1 << EDMA_VQ_ID_SHIFT(queue_id));
++		reg_data &= ~(0x7 << EDMA_VQ_ID_SHIFT(queue_id));
+ 		edma_write_reg(reg_addr, data | reg_data);
+ 	}
+ 
