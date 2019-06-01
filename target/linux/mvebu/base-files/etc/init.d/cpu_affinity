@@ -15,7 +15,7 @@ start() {
 . /lib/functions.sh
 
 case $(board_name) in
-armada-385-linksys-rango)
+linksys,rango)
 	set_irq_affinity mv64xxx_i2c 2
 	set_irq_affinity f1090000.crypto 2
 	set_irq_affinity xhci-hcd:usb2 2
