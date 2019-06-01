@@ -29,7 +29,7 @@ Signed-off-by: Felix Fietkau <nbd@nbd.name>
  	.ndo_fix_features    = mvneta_fix_features,
  	.ndo_get_stats64     = mvneta_get_stats64,
  	.ndo_do_ioctl        = mvneta_ioctl,
-+	.ndo_select_queue    = mvneta_select_queue,
++	/* .ndo_select_queue    = mvneta_select_queue, */
  };
  
  static const struct ethtool_ops mvneta_eth_tool_ops = {
