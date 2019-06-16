@@ -1,0 +1,12 @@
+diff --git a/arch/arm/mm/proc-v7-bugs.c b/arch/arm/mm/proc-v7-bugs.c
+index 5544b82a2e7a..10b9eedc3b37 100644
+--- a/arch/arm/mm/proc-v7-bugs.c
++++ b/arch/arm/mm/proc-v7-bugs.c
+@@ -42,6 +42,7 @@ static void cpu_v7_spectre_init(void)
+ 	const char *spectre_v2_method = NULL;
+ 	int cpu = smp_processor_id();
+ 
++		return;
+ 	if (per_cpu(harden_branch_predictor_fn, cpu))
+ 		return;
+ 
