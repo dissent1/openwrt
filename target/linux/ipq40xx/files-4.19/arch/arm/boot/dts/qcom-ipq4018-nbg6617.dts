@@ -16,7 +16,7 @@
 		 * which we don't want... but we have to overwrite them or else
 		 * the kernel will take them at face value.
 		 */
-		bootargs-append = " mtdparts= root=31:13 coherent_pool=1M";
+		bootargs-append = " mtdparts= root=31:13 coherent_pool=1M nopti nol1tf noibrs noibpb nospec_store_bypass_disable no_stf_barrier nospectre_v2 nospectre_v1 nospectre_v2_user";
 	};
 
 	aliases {
